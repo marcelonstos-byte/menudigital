@@ -305,6 +305,14 @@
                 </div>
             </div>
             <div class="section">
+                <h3>Layout e Orientação</h3>
+                <label>Orientação da Tela</label>
+                <select id="in-orientation" onchange="updateLive('orientation', this.value)">
+                    <option value="horizontal">Horizontal (1920x1080)</option>
+                    <option value="vertical">Vertical (1080x1920)</option>
+                </select>
+            </div>
+            <div class="section">
                 <h3>Navegação Slides</h3>
                 <div class="row">
                     <button class="btn btn-outline" onclick="changeSlide(-1)">◀</button>
@@ -411,7 +419,6 @@
                         .onSnapshot(doc => {
                             if (doc.exists) {
                                 const incomingSlides = doc.data().slides;
-                                // Só atualiza os slides se não estivermos no meio de uma edição ativa (para não perder o foco do input)
                                 if (incomingSlides && incomingSlides.length > 0 && !state.isEditor) {
                                     state.slides = incomingSlides;
                                     startPlayer();
@@ -437,6 +444,7 @@
         function getDefaultTemplate() {
             return {
                 nome: "NOVO PRODUTO",
+                orientation: "horizontal",
                 color_t: "#ffffff",
                 size_t: 100,
                 descricao: "Descrição do item",
@@ -481,6 +489,16 @@
             if (!s) return;
 
             const vp = document.getElementById('viewport');
+
+            // 🔥 ORIENTAÇÃO REAL
+            if (s.orientation === "vertical") {
+                vp.style.width = "1080px";
+                vp.style.height = "1920px";
+            } else {
+                vp.style.width = "1920px";
+                vp.style.height = "1080px";
+            }
+
             vp.style.backgroundImage = s.bg ? `url('${s.bg}')` : 'none';
             document.getElementById('dark-overlay').style.opacity = s.dark_intensity;
 
@@ -510,6 +528,7 @@
                         el.style.setProperty('--tx', `${s[key].x}px`);
                         el.style.setProperty('--ty', `${s[key].y}px`);
                         el.style.transform = `translate(${s[key].x}px, ${s[key].y}px)`;
+
                         if (!state.isEditor) {
                             el.classList.remove('anim-fade-in', 'anim-slide-up', 'anim-zoom-in');
                             void el.offsetWidth;
@@ -518,8 +537,11 @@
                     }
                 }
             });
+
             if (state.isEditor) syncPanelInputs();
-            applyScaling();
+
+            // Pequeno delay para garantir que width/height já foram aplicados
+            setTimeout(applyScaling, 10);
         }
 
         async function salvarRascunho() {
@@ -584,6 +606,7 @@
             document.getElementById('in-size-p').value = s.size_p;
             document.getElementById('in-w-prod').value = s.w_prod || 700;
             document.getElementById('in-w-logo').value = s.w_logo || 200;
+            document.getElementById('in-orientation').value = s.orientation || "horizontal";
             if (auth.currentUser) document.getElementById('info-user').innerText = auth.currentUser.email;
         }
 
@@ -651,8 +674,22 @@
         function applyScaling() {
             const stage = document.getElementById('stage');
             const vp = document.getElementById('viewport');
+
             if (!stage || !vp) return;
-            state.scale = Math.min((stage.offsetWidth - 40) / 1920, (stage.offsetHeight - 40) / 1080);
+
+            // 🔥 Pegamos o tamanho REAL atual do viewport
+            const baseW = vp.offsetWidth;
+            const baseH = vp.offsetHeight;
+
+            const availableW = stage.offsetWidth - 40;
+            const availableH = stage.offsetHeight - 40;
+
+            state.scale = Math.min(
+                availableW / baseW,
+                availableH / baseH
+            );
+
+            vp.style.transformOrigin = "center center";
             vp.style.transform = `scale(${state.scale})`;
         }
 
